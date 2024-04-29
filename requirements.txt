@@ -1,0 +1,9 @@
+gspread-dataframe==3.3.1
+ipywidgets==8.1.2
+jupyterlab==4.1.5
+lightning==2.2.2
+matplotlib==3.8.4
+opencv-python-headless==4.9.0.80
+scikit-learn==1.4.1.post1
+tensorboard==2.16.2
+tqdm
