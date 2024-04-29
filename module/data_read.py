@@ -1,17 +1,19 @@
 from pathlib import Path
 import torch
 import torchvision
+import os
 from PIL import Image
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
+
 
 class ClassificationDataset(Dataset):
     def __init__(self, images_dir: Path, annotations_file: Path, transform=None, transform_target=None):
         self.images_dir = images_dir
         try:
-            self.annotations = pd.read_excel(annotations_file)
+            self.annotations = pd.read_csv(annotations_file) 
         except:
-            self.annotations = pd.read_csv(annotations_file)
+            self.annotations = None
         self.transform = transform
         self.transform_target = transform_target
 
@@ -30,7 +32,7 @@ class ClassificationDataset(Dataset):
 class MessidorDataset(ClassificationDataset):
     def __init__(self, images_dir: Path, annotations_file: Path, transform=None, transform_target=None):
         super().__init__(images_dir, annotations_file, transform, transform_target)
-
+        self.annotations = pd.read_excel(annotations_file)
 
     def __getitem__(self, idx):
         img_path = self.images_dir / self.annotations.iloc[idx, 0]
@@ -77,13 +79,15 @@ class IDRIDDataset(ClassificationDataset):
 
         return {'img': image,
                 'retinopathy_grade': retinopathy_grade
-              }
+               }
 
 
-class DDRDataset(ClassificationDataset):
-    def __init__(self, images_dir: Path, annotations_file: Path, transform=None, transform_target=None, convert_to_binary=False):
-        super().__init__(images_dir, annotations_file, transform, transform_target)
-        self.annotations = pd.read_csv(annotations_file, header=None, sep=' ')
+class DDRDatasetKFold(ClassificationDataset):
+    # def __init__(self, images_dir: Path, annotations_file: Path, transform=None, transform_target=None, convert_to_binary=False):
+    def __init__(self, images_dir: Path, annotations: pd.DataFrame, transform=None, transform_target=None, convert_to_binary=False):
+        super().__init__(images_dir, annotations, transform, transform_target)
+        # self.annotations = pd.read_csv(annotations_file, header=None, sep=' ')
+        self.annotations = annotations
 
         if convert_to_binary: # filtro de imagens com qualidade ruim (classe 5)
             self.annotations = self.annotations[self.annotations[1] < 5]
