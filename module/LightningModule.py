@@ -1,19 +1,21 @@
 import lightning as L
-from torch import nn
-from torch import optim
-import torchmetrics
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
-from sklearn.metrics import classification_report, accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, ConfusionMatrixDisplay, mean_squared_error, mean_absolute_error
+import torch
+from torch import nn, optim
+import torchmetrics 
+import matplotlib.pyplot as plt
+from .setup import lr, CHECKPOINTS_DIR, metrics, num_classes
 
 
 class ClassificationModule(L.LightningModule):
-    def __init__(self, model_pretrained, loss_function, optimizer):
+    def __init__(self, model_pretrained, loss_function, optimizer, figname=None):
         super().__init__()
+        self.figname = figname # for confusion matrix and roc curve plots
         self.model = model_pretrained
         self.optimizer = optimizer
         self.loss_module = loss_function
         self.test_step_outputs = []
         self.training_step_outputs = []
+        self.metrics = metrics
 
     
     def shared_step(self, batch, stage):
@@ -33,34 +35,32 @@ class ClassificationModule(L.LightningModule):
 
     
     def shared_epoch_end(self, outputs, stage):
-        labels = torch.cat([x["labels"] for x in outputs]).cpu()
-        preds = torch.cat([x["preds"] for x in outputs]).cpu().argmax(dim=-1)
+        # labels = torch.cat([x["labels"] for x in outputs]).cpu() # flaten
+        # preds = torch.cat([x["preds"] for x in outputs]).cpu().argmax(dim=-1) # flaten
+        # acc = (preds == labels).float().mean()
         
-        acc = (preds == labels).float().mean()
+        labels = torch.cat([x["labels"] for x in outputs])
+        preds = torch.cat([x["preds"] for x in outputs]).argmax(dim=-1)
+        
         self.loss_ = self.loss_module(preds.float(), labels.float())
         if stage == 'test':
-
-            cm = confusion_matrix(labels, preds)
-            disp = ConfusionMatrixDisplay(confusion_matrix=cm,
-                                  #display_labels=['Normal', 'Pneumonia', 'Covid'])
-                                  display_labels=['0', '1'])
-            disp.plot(cmap='Blues')
-
-            plt.show()
-            print(classification_report(labels, preds))
-            print(accuracy_score(labels, preds))
-            print(f1_score(labels, preds))
-            print(precision_score(labels, preds))
-            print(recall_score(labels, preds))
-            print(recall_score(labels, preds, pos_label=0))
-        
             
-        metrics = {
-             f"{stage}_acc": acc,
-             f"{stage}_f1": f1_score(labels, preds),
-             f"{stage}_precision": precision_score(labels, preds),
-             f"{stage}_recall": recall_score(labels, preds),
-             
+            # confusion matrix
+            # disp_cm = ConfusionMatrixDisplay.from_predictions(labels, preds,
+            #                 display_labels=['No DR', 'DR'] if num_classes==2 else ['Mild', 'Moderate', 'Severe', 'Proliferative'],
+            #                 cmap='Blues')
+            
+            # roc curve
+            # disp_roc = RocCurveDisplay.from_predictions(labels, preds,
+            #                                 name=self.model._get_name())
+            
+            # disp_cm.figure_.savefig(f'{CHECKPOINTS_DIR}/figs/FOLD_{self.figname}_cm.png')
+            # disp_roc.figure_.savefig(f'{CHECKPOINTS_DIR}/figs/FOLD_{self.figname}_RocCurve.png')
+
+
+
+            
+        metrics = self.metrics(preds, labels)
          }
         
         self.log_dict(metrics, prog_bar=True)
@@ -69,7 +69,7 @@ class ClassificationModule(L.LightningModule):
     def training_step(self, batch, batch_idx):
         return self.shared_step(batch, "train")
 
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch, batch_idx, dataloader_idx):
         self.test_step_outputs.append(self.shared_step(batch, "test"))
         return self.shared_step(batch, "test") 
 
