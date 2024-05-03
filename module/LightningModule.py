@@ -4,7 +4,7 @@ from torch import nn, optim
 import torchmetrics 
 import numpy as np
 import matplotlib.pyplot as plt
-from .setup import lr, CHECKPOINTS_DIR, metrics, multiclass
+from .setup import lr, CHECKPOINTS_DIR, metrics, multiclass, roccurve, aucroc
 
 
 class ClassificationModule(L.LightningModule):
@@ -40,28 +40,32 @@ class ClassificationModule(L.LightningModule):
     def shared_epoch_end(self, outputs, stage):
         labels = torch.cat([x["labels"] for x in outputs])
         preds_prob = torch.cat([x["preds"] for x in outputs])
-        dataset_name = np.unique(np.array([set(x["dataset_names"]) for x in outputs]))
+        preds = torch.max(preds_prob, dim=1).indices
+        self.loss_ = self.loss_module(preds_prob, labels)
         
+        dataset_name = np.unique(np.array([set(x["dataset_names"]) for x in outputs]))
         assert len(dataset_name) == 1 # test/train in a unique loader
         dataset_name = list(dataset_name[0])[0]
+
         
-        self.loss_ = self.loss_module(preds_prob, labels)
-            
-        if not multiclass:
-            preds_prob = preds_prob.max(dim=-1).values
-            
         if stage == 'test':
             # Isso deve salvar apenas uma imagem. Garantir q as metricas representam todo o treino!
-            metrics = self.metrics_test(preds_prob, labels)
+            metrics = self.metrics_test(preds, labels)
+            metrics['loss'] = self.loss_
+            metrics['test-aucroc'] = aucroc(preds_prob[:, 1], labels)
+            metrics['test-roccurve_to_plot'] = roccurve(preds_prob[:, 1], labels)
             # confusion matrix # AJEITAR ISSO
             fig_, ax_ = self.metrics_test['cm_to_plot'].plot(metrics['test-cm_to_plot'])
             fig_.savefig(f'{CHECKPOINTS_DIR}/figs/FOLD_{self.figname}-{dataset_name}_cm.png')
             
             # roc curve
-            fig_, ax_ = self.metrics_test['roccurve_to_plot'].plot(metrics['test-roccurve_to_plot'])  
+            fig_, ax_ = roccurve.plot(metrics['test-roccurve_to_plot'])  
             fig_.savefig(f'{CHECKPOINTS_DIR}/figs/FOLD_{self.figname}-{dataset_name}_ROC.png')
         else:
-            metrics = self.metrics_train(preds_prob, labels)
+            metrics = self.metrics_train(preds, labels)
+            metrics['loss'] = self.loss_
+            metrics['train-aucroc'] = aucroc(preds_prob[:, 1], labels)
+            metrics['train-roccurve_to_plot'] = roccurve(preds_prob[:, 1], labels)
 
         metrics = {dataset_name+'-'+key: value for key, value in metrics.items() if not '_' in key}
         self.log_dict(metrics, prog_bar=True)
