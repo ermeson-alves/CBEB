@@ -53,13 +53,14 @@ class MessidorDataset(ClassificationDataset):
 
 
 class IDRIDDataset(ClassificationDataset):
-    def __init__(self, images_dir: Path, annotations_file: Path, transform=None, transform_target=None, convert_to_binary=False):
+    def __init__(self, images_dir: Path, annotations_file: Path, transform=None, transform_target=None, convert_to_binary=False,
+        dataset_name=None):
         super().__init__(images_dir, annotations_file, transform, transform_target)
         self.convert_to_binary = convert_to_binary
         if not convert_to_binary: # se não realizar classificação binaria, pega as imagens com grau de RD entre 1 e 4
             self.annotations = self.annotations[(self.annotations['Retinopathy grade'] < 5) \
                                                 & (self.annotations['Retinopathy grade'] > 0)]
-        
+        self.dataset_name = dataset_name
 
     def __getitem__(self, idx):
         img_path = self.images_dir / f'{self.annotations.iloc[idx, 0]}.jpg'
@@ -78,16 +79,19 @@ class IDRIDDataset(ClassificationDataset):
             retinopathy_grade = self.transform_target(retinopathy_grade)
 
         return {'img': image,
-                'retinopathy_grade': retinopathy_grade
+                'retinopathy_grade': retinopathy_grade,
+                'dataset_name': self.dataset_name,
                }
 
 
 class DDRDatasetKFold(ClassificationDataset):
     # def __init__(self, images_dir: Path, annotations_file: Path, transform=None, transform_target=None, convert_to_binary=False):
-    def __init__(self, images_dir: Path, annotations: pd.DataFrame, transform=None, transform_target=None, convert_to_binary=False):
+    def __init__(self, images_dir: Path, annotations: pd.DataFrame, transform=None, transform_target=None, 
+        convert_to_binary=False, dataset_name=None):
         super().__init__(images_dir, annotations, transform, transform_target)
         # self.annotations = pd.read_csv(annotations_file, header=None, sep=' ')
         self.annotations = annotations
+        self.dataset_name = dataset_name
 
         if convert_to_binary: # filtro de imagens com qualidade ruim (classe 5)
             self.annotations = self.annotations[self.annotations[1] < 5]
@@ -112,7 +116,8 @@ class DDRDatasetKFold(ClassificationDataset):
             image = self.transform(image)
 
         return {'img': image,
-                'retinopathy_grade': retinopathy_grade
+                'retinopathy_grade': retinopathy_grade,
+                'dataset_name': self.dataset_name,
                }
 
 

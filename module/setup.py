@@ -14,8 +14,8 @@ batch_size = 64 # pois a learning rate é alta
 loss_function = nn.CrossEntropyLoss()
 lr=1e-3
 CHECKPOINTS_DIR = './checkpoints_kfold'
-metrics = None
-
+multiclass = True if num_classes > 2 else False
+global metrics
 
 class CLAHETransform(nn.Module):
     def forward(self, img):
