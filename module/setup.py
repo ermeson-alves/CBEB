@@ -9,13 +9,13 @@ from torchmetrics.classification import Accuracy, Recall, Precision, F1Score, Sp
 num_classes = 2
 random_state = 42
 k_folds = 5
-num_epochs = 20
-batch_size = 64 # pois a learning rate é alta
+num_epochs = 25
+batch_size = 32
 loss_function = nn.CrossEntropyLoss()
 lr=1e-3
 CHECKPOINTS_DIR = './checkpoints_kfold'
 multiclass = True if num_classes > 2 else False
-global metrics, roccurve, aucroc
+global metrics, roccurve, aucroc, ticklabels
 
 class CLAHETransform(nn.Module):
     def forward(self, img):
@@ -53,7 +53,7 @@ binary_metrics = MetricCollection({'acc': Accuracy('binary'),
                                    'specificity': Specificity('binary'),
                                    # 'auroc': AUROC('binary'),
                                    # 'roccurve_to_plot': ROC('binary'),
-                                   'cm_to_plot': ConfusionMatrix('binary')
+                                   'cm-to-plot': ConfusionMatrix('binary')
                                   })
 
 multiclass_metrics = MetricCollection({'acc': Accuracy('multiclass', num_classes=num_classes),
@@ -69,15 +69,17 @@ multiclass_metrics = MetricCollection({'acc': Accuracy('multiclass', num_classes
                             # 'auroc': AUROC('multiclass', num_classes=num_classes),
                             # 'auroc_per_class': AUROC('multiclass', num_classes=num_classes, average=None),
                             # 'roccurve_to_plot': ROC('multiclass', num_classes=num_classes),
-                            'cm_to_plot': ConfusionMatrix('multiclass', num_classes=num_classes)
+                            'cm-to-plot': ConfusionMatrix('multiclass', num_classes=num_classes)
                             })
 if num_classes==2:
     metrics = binary_metrics
     roccurve = ROC('binary')
     aucroc = AUROC('binary')
+    ticklabels = ['NO DR', 'DR']
 
 else:
     metrics = multiclass_metrics
     roccurve = ROC('multiclass', num_classes=num_classes)
     aucroc = AUROC('multiclass', num_classes=num_classes)
+    ticklabels = ['MILD', 'MODERATE', 'SEVERE', 'PROLIFERATIVE']
     
